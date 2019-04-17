@@ -1,0 +1,420 @@
+---
+title: "project 1"
+author: "caojilin"
+date: "2/28/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.path = "downloads/")
+```
+
+# Load required packages
+```{r}
+library(readtext)
+library(GGally)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+```
+
+# Load raw data
+```{r}
+data_all <- read.csv("data/sonoma-data-all.csv")
+data_log <- read.csv("data/sonoma-data-log.csv")
+data_net <- read.csv("data/sonoma-data-net.csv")
+```
+
+
+# Data Cleaning
+
+# 2a): Check Consistency of Data: Plot Graphs
+```{r}
+# Change column names
+colnames(data_all)[10] <- "incidentPAR"
+colnames(data_all)[11] <- "reflectedPAR"
+colnames(data_net)[10] <- "incidentPAR"
+colnames(data_net)[11] <- "reflectedPAR"
+colnames(data_log)[10] <- "incidentPAR"
+colnames(data_log)[11] <- "reflectedPAR"
+
+# combine plots side y side for comparison
+jpeg("humdity_distribution_compare_2a.jpeg")
+par(mfrow=c(1,2))
+hist(data_log$humidity, main = 'Distribution of Humidity (data_log)', xlab = 'Humidity')
+hist(data_net$humidity, main = 'Distribution of Humidity (data_net)', xlab = 'Humidity')
+dev.off()
+
+hist(data_log$humid_temp)
+hist(data_net$humid_temp)
+hist(data_log$humid_adj)
+hist(data_net$humid_adj)
+hist(data_log$epoch)
+hist(data_net$epoch)
+hist(data_log$voltage)
+hist(data_net$voltage)
+hist(data_log$depth)
+hist(data_net$depth)
+
+par(mfrow=c(1,2))
+hist(data_log$incidentPAR, main = 'Distr. of incidentPAR (data_log)', xlab = 'incidentPAR')
+hist(data_net$incidentPAR, main = 'Distr. of incidentPAR (data_net)', xlab = 'incidentPAR')
+hist(data_log$reflectedPAR)
+hist(data_net$reflectedPAR)
+
+# The histogram indicates that all variables are inconsistent between the two datasets
+
+# As shown by the summary above, there is only one result time for all data. It is suspected that such time is the time at which the data was imported from the local machines to the network lab. This column is thus not useful for our purpose of tracking time and therefore removed. 
+data_log <- data_log[,-1]
+
+# Convert IncidentPAR and ReflectedPAR
+data_log$incidentPAR <- data_log$incidentPAR / 54
+data_net$incidentPAR <- data_net$incidentPAR / 54
+data_log$reflectedPAR <- data_log$reflectedPAR / 54
+data_net$reflectedPAR <- data_net$reflectedPAR / 54
+```
+
+
+
+# 2b) Deal with missing values
+```{r}
+# Check the number of missing values
+missing_index_net <- which(is.na(data_net$humidity))
+length(missing_index_net)
+
+# Find the corresponding dates to these missing values
+missing_value_date_net <- table(as.Date(data_net$result_time)[missing_index_net])
+
+# Plot time period for which there are missing values
+a <- data.frame(missing_value_date_net)
+plot(a$Freq ~ a$Var1, main = "Missing Measurements By Date", xlab = "Date", ylab = "Number of Missing Measurements")
+
+# Remove all voltage values of data_net as they do not represent the battery voltage
+data_net$voltage <- NULL
+
+#remove all NA values
+data_net <- na.omit(data_net)
+data_log <- na.omit(data_log)
+
+percent <- 4262 / (nrow(data_net))
+percent
+percent2 <- 8270 / (nrow(data_net))
+percent2
+summary(data_net)
+summary(data_log)
+```
+
+
+
+
+# 2d) Remove outliers
+```{r}
+# Remove voltage higher than 3 lower than 2.4 in data_log
+data_log <- data_log[which(data_log$voltage < 3 & data_log$voltage > 2.4),]
+
+# Check the abnormality of the nodeid
+hist(data_net$nodeid)
+hist(data_log$nodeid)
+boxplot(data_log$nodeid, main = "Boxplot of Node ID", ylab = "Node ID")
+quantile(data_log$nodeid)
+# As shown by the histogram and the quantile range, most of the nodeid in data_log are in the 100s while there is one extreme outlier with the value of 65535. Remove this outlier. 
+data_log <- data_log[data_log$nodeid < 1000,]
+
+# Check abnormal humidity readings
+summary(data_net$humidity)
+summary(data_log$humidity)
+hist(data_net$humidity)
+hist(data_log$humidity)
+
+# number of humidity values outside of normal range
+length(which(data_net$humidity < 0))
+length(which(data_log$humidity > 100))
+
+# Remove values that are less than 0 or greater than 100
+data_net <- data_net[data_net$humidity >= 0,]
+data_log <- data_log[data_log$humidity <= 100,]
+
+boxplot(data_net$humid_temp,
+        col = "lightgray",
+        horizontal = TRUE,
+        main = "Temperature Boxplot",
+        xlab = "Temperature")
+boxplot(data_log$humid_temp,
+        col = "lightgray",
+        horizontal = TRUE,
+        main = "Temperature Boxplot",
+        xlab = "Temperature")
+quantile(data_net$humid_temp)
+quantile(data_log$humid_temp)
+boxplot(data_log$humid_temp)$stats[c(1,5), ]
+A[2]
+# Outlier exists after the end of boxplot: remove all values greater than 99% quantile as these are treated as outliers
+
+data_net <- data_net[data_net$humid_temp < 24.5062, ]
+data_log <- data_log[data_log$humid_temp < 30.4548, ]
+```
+
+
+# 2c) Merge the two datasets and merge with location data
+```{r}
+# find unique epoch and nodeid for data_net 
+data_net <- data_net %>% group_by(epoch, nodeid) %>% summarise(humidity = mean(humidity), humid_temp = mean(humid_temp), incidentPAR = mean(incidentPAR), reflectedPAR = mean(reflectedPAR))
+data_log <- data_log %>% group_by(epoch, nodeid) %>% summarise(humidity = mean(humidity), humid_temp = mean(humid_temp), incidentPAR = mean(incidentPAR), reflectedPAR = mean(reflectedPAR))
+dim(data_all)
+dim(data_log)
+
+# merge the two datasets data_net and data_log
+inner_join(data_log, data_net, by = c('epoch', 'nodeid'))
+data_all <- rbind(data_log, anti_join(data_net, data_log, by = c('epoch', 'nodeid')))
+
+# Load location data (not yet merged)
+location_data <- read.table('Data/mote-location-data.txt', header = TRUE)
+data_all_location <- merge(data_all, location_data, by.x = "nodeid", by.y = "ID")
+colnames(data_all_location)
+dim(data_all_location)
+data_all_location
+dim(location_data)
+
+# the new data frame has 14 variables
+
+
+```
+# 2e)
+```{r}
+
+# Plot graphs to look for outliers
+summary(data_all$humidity) # lowest reading is negative -5145.10, clearly wrong
+summary(data_all$humid_temp)
+summary(data_all$reflectedPAR)
+summary(data_all$incidentPAR)
+quantile(data_all$reflectedPAR)
+
+# Boxplots to look for outliers
+par(mfrow=c(2,1))
+boxplot(data_all$humidity,
+        col = "lightgray",
+        horizontal = TRUE,
+        main = "Humidity Boxplot",
+        xlab = "Humidity")
+
+
+
+boxplot(data_all$humid_temp,
+        col = "lightgray",
+        horizontal = TRUE,
+        main = "Temperature Boxplot",
+        xlab = "Temperature")
+
+# Since incidentPAR and reflectedPAR have too many missing values, leave them as they are for now
+boxplot(data_all$incidentPAR,
+        col = "lightgray",
+        horizontal = TRUE,
+        main = "Incident PAR Boxplot",
+        xlab = "Incident PAR")
+
+boxplot(data_all$reflectedPAR,
+        col = "lightgray",
+        horizontal = TRUE,
+        main = "Reflected PAR Boxplot",
+        xlab = "Reflected PAR")
+
+
+# The plots indicate that there is no clear outlier for humidity, while the other three variables have many outliers
+
+# remove temperature outlier
+plot(density(data_all$humid_temp))
+max_keep <- quantile(data_all$humid_temp, probs = 0.997)[[1]]
+data_all <- data_all[data_all$humid_temp < max_keep,]
+# remove PAR outlier
+data_all <- data_all[data_all$incidentPAR < 2154,]
+
+```
+
+# 3a) Investigate relationships between different variables
+```{r}
+# Plot of temperature vs. humidity
+sample <- sample(1: nrow(data_all), 10000, replace = FALSE)
+lm(data_all$humidity[sample] ~ data_all$humid_temp[sample])
+plot(data_all$humid_temp[sample], data_all$humidity[sample], xlab = "Temperature", ylab = "Humidity", main = "Temperature vs. Humidity")
+abline(a = 121.989, b = -3.965, col = 'red')
+
+# Time period is the entire range as we thought the data is most representative this way. 
+```
+
+# 3b)
+```{r}
+sample <- sample(1: nrow(data_all), 10000, replace = FALSE)
+
+plot(data_all$humid_temp[sample], data_all$incidentPAR[sample], xlab = "Temperature", ylab = "IncidentPAR", main = "Temperature vs. IncidentPAR")
+
+plot(data_all$humidity[sample], data_all$incidentPAR[sample], xlab = "Humidity", ylab = "IncidentPAR", main = "Humidity vs. IncidentPAR")
+
+plot(data_all$nodeid[sample], data_all$incidentPAR[sample], xlab = "Node ID", ylab = "IncidentPAR", main = "Node ID vs. IncidentPAR")
+
+plot(data_all$reflectedPAR[sample], data_all$incidentPAR[sample], xlab = "ReflectedPAR", ylab = "IncidentPAR", main = "ReflectedPAR vs. IncidentPAR")
+
+plot(data_all$epoch[sample], data_all$incidentPAR[sample], xlab = "epoch", ylab = "IncidentPAR", main = "epoch vs. IncidentPAR")
+# data_all$height <- location_data$Height[match(data_all$nodeid, location_data$ID)]
+# temp_data_all <- data_all[(data_all$epoch >= 1262 & data_all$epoch <= 1550),]
+plot(temp_data_all$height, temp_data_all$incidentPAR, xlab = "Height", ylab = "IncidentPAR", main = "Height vs. IncidentPAR")
+
+```
+
+# 3c
+```{r}
+
+# Merge height from location data to data all 
+data_all$height <- location_data$Height[match(data_all$nodeid, location_data$ID)]
+temp_data_all <- data_all[(data_all$epoch >= 1262 & data_all$epoch <= 1550),]
+
+# Separate heights into different groups
+temp_data_all$height_group <- 1
+temp_data_all$height_group[which(temp_data_all$height > 30)] <- 2
+temp_data_all$height_group[which(temp_data_all$height > 35)] <- 3
+temp_data_all$height_group[which(temp_data_all$height > 40)] <- 4
+temp_data_all$height_group[which(temp_data_all$height > 47)] <- 5
+temp_data_all$height_group[which(temp_data_all$height > 50)] <- 6
+temp_data_all$height_group[which(temp_data_all$height > 60)] <- 7
+
+summary(temp_data_all$humid_temp[temp_data_all$height_group == 7])
+summary(temp_data_all$humid_temp[temp_data_all$height_group == 2])
+# Take a random sample of 2000
+sample <- sample(1: nrow(temp_data_all), 5000, replace = FALSE)
+temp_data_all_2000 <- temp_data_all[sample,]
+
+# Time Series for Humidity
+hplot <- ggplot(data = temp_data_all_2000) + geom_line(aes(x = epoch, y = humidity, color = factor(height_group))) +
+  ylim(15, 60) + theme(legend.position="none") + scale_x_continuous("time", breaks = round(seq(1262, 1550, by = 72),1), labels = c("0:00", "6:00", '12:00', '18:00', '0:00')) + ggtitle('Time Series for Humidity')
+
+# Time Series for Temperature
+tplot <- ggplot(data = temp_data_all_2000) + geom_line(aes(x = epoch, y = humid_temp, color = factor(height_group))) +
+  ylim(15, 30) + theme(legend.position="none") + scale_x_continuous("time", breaks = round(seq(1262, 1550, by = 72),1), labels = c("0:00", "6:00", '12:00', '18:00', '0:00')) + ggtitle('Time Series for Temperature')
+
+# Time Series for IncidentPAR
+iplot <- ggplot(data = temp_data_all_2000) + geom_line(aes(x = epoch, y = incidentPAR, color = factor(height_group))) +
+  ylim(0, 2000) + theme(legend.position="none") + scale_x_continuous("time", breaks = round(seq(1262, 1550, by = 72),1), labels = c("0:00", "6:00", '12:00', '18:00', '0:00')) + ggtitle('Time Series for incidentPAR')
+
+# Time Series for ReflectedPAR
+rplot <- ggplot(data = temp_data_all_2000) + geom_line(aes(x = epoch, y = reflectedPAR, color = factor(height_group))) +
+  ylim(0, 150) + theme(legend.position="none") + scale_x_continuous("time", breaks = round(seq(1262, 1550, by = 72),1), labels = c("0:00", "6:00", '12:00', '18:00', '0:00')) + ggtitle('Time Series for reflectedPAR')
+
+hplot
+tplot
+iplot
+rplot
+# Place four graphs side by side
+grid.arrange(hplot, tplot, iplot, rplot, nrow = 2)
+```
+
+# 3d) Principal Component Analysis
+```{r}
+pca_data_all <- data_all[,-c(2, 7, 8, 9, 10)]
+pca_prcomp <- prcomp(na.omit(pca_data_all), scale. = TRUE)
+
+#got rid of the nodeid for PCA as it is not relevant.
+
+# scree plot
+eigenvalues <- pca_prcomp$sdev ^ 2
+eigs_cum <- cumsum(prop.table(eigenvalues))
+ggplot() + geom_line(aes(x = 1:length(eigenvalues), y = eigs_cum)) + geom_point(aes(x = 1:length(eigenvalues), y = eigs_cum)) + labs(x = "first PCs", y = "fraction of total variance explained") + ggtitle('Screeplot')
+# the first 3 pcs explained roughly 80% of the total variance and so 3 pcs are sufficient. 
+```
+
+# 4) Interesting Findings
+```{r}
+# merge tree and dist and direction from location data with data all 
+# edge_ids <- location_data$ID[location_data$Tree == "edge"]
+# interior_ids <- location_data$ID[location_data$Tree == "interior"]
+# edge.tree = all$nodeid %in% edge.tree.ids
+# inte.tree = all$nodeid %in% inte.tree.ids
+
+data_all$tree <- location_data$Tree[match(data_all$nodeid, location_data$ID)]
+data_all$direction <- location_data$Direc[match(data_all$nodeid, location_data$ID)]
+data_all$distance <- location_data$Dist[match(data_all$nodeid, location_data$ID)]
+data_all$tree
+
+
+# First Finding
+ggplot(data = temp_data_finding, aes(x = height, y = temperature)) + geom_point() + coord_flip() + 
+  ggtitle("Scatterplot for Edge Tree Based on Node Distance") + ylab("Temperature") + xlab('Height')
+
+# Second Finding
+p1 <- ggplot(data = na.omit(data_all[data_all$tree == "edge",]), 
+       aes(x = humidity, y = humid_temp, group = nodeid)) + 
+  geom_boxplot(outlier.shape = NA) + coord_flip() + 
+  ggtitle("Boxplot for Edge Tree Based on Node Distance") + ylab("Temperature") + xlab('Humidity') 
+p2 <- ggplot(data = na.omit(data_all[data_all$tree == "interior",]), 
+       aes(x = humidity, y = humid_temp, group = nodeid)) + 
+  geom_boxplot(outlier.shape = NA) + coord_flip() + 
+  ggtitle("Boxplot for Interior Tree Based on Node Distance") + ylab("Temperature") + xlab('Humidity')
+grid.arrange(p1, p2, ncol=2)
+
+# Third Finding 
+
+```
+
+# 5): Graph Critique
+
+# 5a)
+```{r}
+hist(log(data_all$incidentPAR), main = "Histogram of Incident PAR")
+hist(log(data_all$reflectedPAR), main = "Histogram of Reflected PAR")
+# R will automatically drop -inf
+```
+
+# 5b)
+
+Boxplot 3 c) displays the distribution of all the readings taken by the sensors at each height. Figure 3 d) shows the distribution of the differeces between each sensor reading at each timestep and the mean of all the sensor readings. Though the graphs in 3 shows that there exists a trend in which the higher the height of the tree, the less likeley that it is covered by the leaves and the higher chance of receiving a higher PAR. However, one major issue with these graphs is that they have neglected the role that time plays in this role: the graphs in 3 only takes into account the entire data set without specifiying which one belongs to which date, thus causing unncessary confusion. 
+
+```{r}
+temp_data_all <- data_all[data_all$epoch == 1062,]
+temp_data_all <- na.omit(temp_data_all)
+ggplot(data =temp_data_all, aes(x = incidentPAR, y = height)) + geom_point(aes(color = tree)) + geom_smooth(method = lm, se = FALSE) + ggtitle('Height vs Incident PAR')
+plot(temp_data_all$incidentPAR, temp_data_all$height, col = temp_data_all$tree, main = "Height vs Incident PAR", xlab = "Incident PAR", ylab = "Height")
+legend(1, 1, legend=c("Edge", "Interior"),
+       col=c("red", "black"), lty=1:2, cex=0.8)
+abline(lm(height ~ incidentPAR, data = temp_data_all))
+```
+
+# 5c)
+* It is difficult to distinguish the colors of the lines in the graph as some colors appear multiple times and this may cause confusion for readers without a clear legend displayed.
+* We inferred that the colors represent nodeid.
+
+```{r}
+temp_data_all <- data_all[(data_all$epoch >= 1262 & data_all$epoch <= 1550),]
+
+# sample <- sample(1: nrow(temp_data_all), 10000, replace = FALSE)
+temp_data_all_2000 <- temp_data_all[sample,]
+ggplot(data = temp_data_all) + geom_path(aes(x = epoch, y = humidity, color = factor(nodeid))) +
+  ylim(20, 60) + theme(legend.position="none") + scale_x_continuous("time", breaks = round(seq(1262, 1550, by = 72),1), labels = c("0:00", "6:00", '12:00', '18:00', '0:00')) + ggtitle('Time Series for Humidity')
+
+```
+
+# 5 d)
+
+* The graphs in figure 7 displays data received over network and data stored in the local log respectively. 
+* The histograms indicate that the majority of the yields are in the zero range. 
+* Improvement: overlap the distributions of each key variable from data_log and data_net. Supposedly, they should be identical as they should record the same data, but it may in fact be different due to the different receptions of data through network and local log. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

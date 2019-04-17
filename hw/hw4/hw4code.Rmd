@@ -1,0 +1,331 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r, echo=FALSE,results='hide',message=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+library(glmnet)
+library(ggplot2)
+library(reshape2)
+library(caret)
+```
+
+#5.4
+```{r}
+n=1000
+d=5000
+x = matrix(rnorm(5000*1000, mean = 0, sd = 1),nrow = 1000)
+err = rnorm(1000,0,sqrt(0.25))
+beta = c(rep(1,15),rep(0,4985))
+y = x %*% beta + err
+```
+
+\newpage
+#5.5
+```{r}
+training = x[1:800,]
+training.label = y[1:800]
+test = x[801:1000,]
+test.label = y[801:1000]
+
+```
+
+\newpage
+#5.6
+```{r}
+mod = cv.glmnet(training, training.label, alpha=0, type.measure = "mse")
+
+lambdas = mod$lambda
+training.error = rep(0,length(lambdas))
+test.error = rep(0,length(lambdas))
+
+for (i in 1:length(lambdas)) {
+  fit.ridge= glmnet(training, training.label, alpha=0, lambda = lambdas[i])
+  training.error[i] = mean((training.label - predict(fit.ridge, training))^2)
+  test.error[i] = mean((test.label - predict(fit.ridge, test))^2)
+}
+
+dat <- data.frame("log(lambdas)" = log(lambdas), train.mse = training.error, test.mse = test.error)
+dat.m <- melt(dat, id.vars = "log.lambdas.")
+ggplot(dat.m, aes(log.lambdas., value, colour = variable)) +
+  geom_line() +
+  scale_colour_manual(values = c("red", "blue"))
+
+ridge.mse = test.error[which(test.error == min(test.error))]
+ridge.lambda.min = lambdas[which(test.error == min(test.error))]
+```
+
+\newpage
+#5.7
+```{r}
+mod = cv.glmnet(training, training.label, alpha=1, type.measure = "mse")
+
+lambdas = mod$lambda
+training.error = rep(0,length(lambdas))
+test.error = rep(0,length(lambdas))
+
+for (i in 1:length(lambdas)) {
+  fit.lasso= glmnet(training, training.label, alpha=1, lambda = lambdas[i])
+  training.error[i] = mean((training.label - predict(fit.lasso, training))^2)
+  test.error[i] = mean((test.label - predict(fit.lasso, test))^2)
+}
+
+dat <- data.frame(lambda = lambdas, train.mse = training.error, test.mse = test.error)
+dat.m <- melt(dat, id.vars = "lambda")
+ggplot(dat.m, aes(lambda, value, colour = variable)) +
+  geom_line() +
+  scale_colour_manual(values = c("red", "blue"))
+
+
+lasso.mse = test.error[which(test.error == min(test.error))]
+lasso.lambda.min = lambdas[which(test.error == min(test.error))]
+```
+
+\newpage
+#5.8
+```{r}
+ridge.lambda.min
+ridge.mse 
+
+lasso.lambda.min
+lasso.mse
+```
+
+#6
+```{r, echo=FALSE}
+### DO NOT CHANGE THIS PART, BEGIN
+# load the Ames txt data 
+Ames <- read.delim("AmesHousing.txt", header = TRUE, sep = "\t", dec = ".")
+
+continuousVar <- colnames(Ames)[grep("Frontage|SF|Area|Porch", 
+                                     colnames(Ames))]
+
+AmesTiny <- Ames[, c(continuousVar, 
+                     c("Overall.Qual",
+                       "Overall.Cond","Neighborhood",
+                       "SalePrice"))]
+# check NA
+# colSums(is.na(AmesTiny))
+# fill the Garage.Area NA with 0
+AmesTiny$Garage.Area[is.na(AmesTiny$Garage.Area)] = 0
+# change factor variable to actual factor in the data frame
+AmesTiny$Overall.Qual <- factor(AmesTiny$Overall.Qual)
+AmesTiny$Overall.Cond <- factor(AmesTiny$Overall.Cond)
+# fill the continuous variable with column mean
+for(i in 1:ncol(AmesTiny)){
+  AmesTiny[is.na(AmesTiny[,i]), i] <- mean(AmesTiny[,i], na.rm = TRUE)
+}
+
+# divide the data into training and test datasets
+set.seed(12345678)
+testSize <- floor(nrow(AmesTiny)*0.1)
+testIndex <- sample(seq_len(nrow(AmesTiny)), size = testSize)
+AmesTinyTrain <- AmesTiny[-testIndex, ]
+AmesTinyTest <- AmesTiny[testIndex, ]
+### DO NOT CHANGE THIS PART, END
+```
+```{r, echo=FALSE}
+mod1 = lm(log(SalePrice + 1) ~ Gr.Liv.Area, data = AmesTinyTrain)
+mod2 = lm(log(SalePrice + 1) ~ Gr.Liv.Area+Garage.Area, data = AmesTinyTrain)
+mod3 = lm(log(SalePrice + 1) ~ Gr.Liv.Area+Garage.Area+Open.Porch.SF, data = AmesTinyTrain)
+mod4 = lm(log(SalePrice + 1) ~ Gr.Liv.Area+Garage.Area+Open.Porch.SF+Lot.Area, data = AmesTinyTrain)
+mod5 = lm(log(SalePrice + 1) ~ Gr.Liv.Area+Garage.Area+Open.Porch.SF+Lot.Area+Overall.Qual, data = AmesTinyTrain)
+mod6 = lm(log(SalePrice + 1) ~ Gr.Liv.Area+Garage.Area+Open.Porch.SF+Lot.Area+Overall.Qual+Overall.Cond, data = AmesTinyTrain)
+mod7 = lm(log(SalePrice + 1) ~ Gr.Liv.Area+Garage.Area+Open.Porch.SF+Lot.Area+Overall.Qual+Overall.Cond+log(Gr.Liv.Area+1), data = AmesTinyTrain)
+mod8 = lm(log(SalePrice + 1) ~ Gr.Liv.Area+Garage.Area+Open.Porch.SF+Lot.Area+Overall.Qual+Overall.Cond+log(Gr.Liv.Area+1)+log(Gr.Liv.Area+1)^2, data = AmesTinyTrain)
+mod9 = lm(log(SalePrice + 1) ~ Gr.Liv.Area+Garage.Area+Open.Porch.SF+Lot.Area+Overall.Qual+Overall.Cond+log(Gr.Liv.Area+1)+log(Gr.Liv.Area+1)^2+log(Gr.Liv.Area+1)^3, data = AmesTinyTrain)
+mod10 = lm(log(SalePrice + 1) ~ Gr.Liv.Area+Garage.Area+Open.Porch.SF+Lot.Area+Overall.Qual+Overall.Cond+log(Gr.Liv.Area+1)+log(Gr.Liv.Area+1)^2+log(Gr.Liv.Area+1)^3+log(Gr.Liv.Area+1)^4, data = AmesTinyTrain)
+mod11 = lm(log(SalePrice + 1) ~ Gr.Liv.Area+Garage.Area+Open.Porch.SF+Lot.Area+Overall.Qual+Overall.Cond+log(Gr.Liv.Area+1)+log(Gr.Liv.Area+1)^2+log(Gr.Liv.Area+1)^3+log(Gr.Liv.Area+1)^4+log(Gr.Liv.Area+1)^5, data = AmesTinyTrain)
+```
+
+\newpage
+#6.1-6.2
+```{r}
+MSE = function(y, x, beta){
+  sum((y-(x %*% beta))^2)/length(y)
+}
+R2 = function(y, x, beta){
+  cor(y, x %*% beta)^2
+}
+```
+
+\newpage
+#6.3
+```{r, echo=FALSE}
+# columns involved in 11 models, you might want to use a for loop to loop over models
+Xnames <- c("Gr.Liv.Area", "Garage.Area","Open.Porch.SF",
+                     "Lot.Area",
+                     "factor(Overall.Qual)",
+                      "factor(Overall.Cond)",
+                     "I(log(Gr.Liv.Area+1))",
+                      "I(log(Gr.Liv.Area+1)^2)",
+                      "I(log(Gr.Liv.Area+1)^3)",
+                     "I(log(Gr.Liv.Area+1)^4)","I(log(Gr.Liv.Area+1)^5)")
+```
+
+
+```{r}
+test.mse= rep(0, 11)
+modelQuality = matrix(rep(0,22),nrow=11)
+modelQualityRImp =matrix(rep(0,22),nrow=11)
+for (i in 1:length(Xnames)) {
+  formula = as.formula(paste("log(SalePrice + 1) ~ ", paste(Xnames[1:i], collapse= "+")))
+  lmod = lm(formula, data = AmesTinyTrain)
+  training.label = log(AmesTinyTrain$SalePrice+1)
+  mse = MSE(training.label, model.matrix(lmod),lmod$coefficients)
+  r2 = R2(training.label,model.matrix(lmod),lmod$coefficients)
+  modelQuality[i,1] = mse
+  modelQuality[i,2] = r2
+  r.out = summary(lmod)
+  modelQualityRImp[i,1] = sum(r.out$residuals^2)/nrow(model.matrix(lmod))
+  modelQualityRImp[i,2] = r.out$r.squared
+  
+  test.label = log(AmesTinyTest$SalePrice+1)
+  test.mse[i] = sum((test.label-predict(lmod, AmesTinyTest))^2)/nrow(AmesTinyTest)
+}
+
+modelQuality = as.data.frame(modelQuality)
+modelQualityRImp = as.data.frame(modelQualityRImp)
+colnames(modelQuality) <- c("MSE", "R2")
+colnames(modelQualityRImp) <- c("MSE", "R2")
+modelQuality
+modelQualityRImp
+```
+
+\newpage
+#6.4
+```{r, echo=FALSE}
+
+ggplot(data = data.frame(features = 1:length(Xnames), trainMSE = modelQuality$MSE ))+
+  geom_point(aes(x = features, y = trainMSE))+
+  geom_line(aes(x = features, y = trainMSE))
+# the training MSE is decreasing as the number of predictors increase
+```
+
+the training MSE is decreasing as the number of predictors increase
+
+\newpage
+#6.5
+```{r, echo=FALSE}
+dat <- data.frame(features = 1:length(Xnames), train.mse = modelQuality$MSE, test.mse = test.mse)
+dat.m <- melt(dat, id.vars = "features")
+ggplot(dat.m, aes(features, value, colour = variable)) +
+  geom_point() + geom_line(aes(features, value, colour = variable))+
+  scale_colour_manual(values = c("red", "blue"))
+
+# which(test.mse  == min(test.mse))
+# min(test.mse)
+```
+test MSE is decreseing in [1:10] and starts increasing at 11 and the 10th model gives the lowest test MSE
+
+\newpage
+```{r, echo=FALSE}
+### DO NOT CHANGE THIS PART, BEGIN
+set.seed(123456)
+valSize <- floor(nrow(AmesTinyTrain)*0.2)
+valIndex <- sample(seq_len(nrow(AmesTinyTrain)), size = valSize)
+# actual training data
+AmesTinyActTrain <- AmesTinyTrain[-valIndex, ]
+AmesTinyActVal <- AmesTinyTrain[valIndex, ]
+### DO NOT CHANGE THIS PART, END
+```
+
+\newpage
+#6.2.2
+```{r}
+modelQualitySingleVal = matrix(rep(0,22),nrow=11)
+for (i in 1:length(Xnames)) {
+  formula = as.formula(paste("log(SalePrice + 1) ~ ", paste(Xnames[1:i], collapse= "+")))
+  lmod = lm(formula, data = AmesTinyActTrain)
+  training.label = log(AmesTinyActTrain$SalePrice+1)
+  mse = MSE(training.label, model.matrix(lmod),lmod$coefficients)
+  modelQualitySingleVal[i,1] = mse
+  
+  val.label = log(AmesTinyActVal$SalePrice+1)
+  modelQualitySingleVal[i, 2] = sum((val.label-predict(lmod, AmesTinyActVal))^2)/nrow(AmesTinyActVal)
+}
+
+dat <- data.frame(features = 1:length(Xnames), train.mse = modelQualitySingleVal[,1], val.mse = modelQualitySingleVal[,2])
+dat.m <- melt(dat, id.vars = "features")
+ggplot(dat.m, aes(features, value, colour = variable)) +
+  geom_point() + geom_line(aes(features, value, colour = variable))+
+  scale_colour_manual(values = c("red", "blue"))
+
+which(modelQualitySingleVal[,2] == min(modelQualitySingleVal[,2]))
+```
+the 10th model gives the lowest validation MSE
+
+\newpage
+#6.3.1
+```{r}
+set.seed(123)
+folds <- createFolds(AmesTinyTrain$SalePrice, k = 5)
+cvMSE = matrix(rep(0,55),nrow=11)
+
+for (i in 1:length(Xnames)) {
+  formula = as.formula(paste("log(SalePrice + 1) ~ ", paste(Xnames[1:i], collapse= "+")))
+  for (f in 1:5) {
+    train = AmesTinyTrain[-folds[[f]], ]
+    lmod = lm(formula, data = train)
+    test = AmesTinyTrain[folds[[1]], ]
+    pred<- predict(lmod, test)
+    true_y<- log(test$SalePrice + 1)
+    mse1 = 1/length(folds[[1]]) * sum((pred-true_y)^2)
+    cvMSE[i,f] = mse1
+  }
+}
+```
+
+\newpage
+#6.3.2
+```{r}
+dat <- data.frame(x = 1:length(Xnames), trainMSE = modelQuality$MSE, testMSE = test.mse, singleValMSE = modelQualitySingleVal[,2], CV.MSE=rowSums(cvMSE)/5)
+dat.m <- melt(dat, id.vars = "x")
+ggplot(dat.m, aes(x, value, colour = variable)) +
+  geom_line() + geom_point(aes(x, value, colour = variable))+
+  scale_colour_manual(values = 1:5)
+
+#10th model
+# which(dat$CV.MSE == min(dat$CV.MSE))
+```
+the 10th model gives the lowest CV-MSE
+
+\newpage
+#6.4.1
+```{r}
+train = AmesTiny[setdiff(names(AmesTiny), c("SalePrice"))]
+
+x_train <- model.matrix( ~ .-1, train)
+train.label = log(AmesTiny$SalePrice + 1)
+mod.ridge = glmnet(x_train, log(AmesTiny$SalePrice + 1), alpha = 0, lambda = 1)
+```
+
+\newpage
+#6.4.2
+```{r}
+lambdas = c(0.1, seq(1,1000,30))
+
+training.error = rep(0,length(lambdas))
+test.error = rep(0,length(lambdas))
+
+for (i in 1:length(lambdas)) {
+  fit.ridge= glmnet(x_train, train.label, alpha=0, lambda = lambdas[i])
+  training.error[i] = mean((train.label - predict(fit.ridge, x_train))^2)
+}
+
+cvmod = cv.glmnet(x_train, train.label, alpha=0, lambda = lambdas, type.measure = 'mse',nfolds = 5)
+
+dat <- data.frame(lambda = lambdas, trainMSE = training.error, CV.MSE = rev(cvmod$cvm))
+dat.m <- melt(dat, id.vars = "lambda")
+ggplot(dat.m, aes(lambda, value, colour = variable)) +
+  geom_point() + geom_line(aes(lambda, value, colour = variable))+
+  scale_colour_manual(values = c("red", "blue"))
+```
+
+```{r, echo=F, eval=F}
+train.lambda.min = lambdas[which(training.error ==  min(training.error))]
+cvmod$lambda.min
+```
+
+when $\lambda = 0.1$, we have both minimum training MSE and CV-MSE

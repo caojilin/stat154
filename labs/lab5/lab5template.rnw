@@ -1,0 +1,284 @@
+\documentclass{article}
+\usepackage{fullpage}
+\usepackage{amsmath,amssymb,float,amsfonts,enumitem,bm}
+\usepackage{hyperref}
+
+\input{../macros.tex}
+
+<<{r  global_options},include= TRUE,echo=FALSE>>=
+knitr::opts_chunk$set(include= TRUE,echo = TRUE, eval=FALSE,
+                      message = FALSE, warning = FALSE,
+                      fig.width=3, fig.height=3, fig.align='center',
+                      fig.asp = 1
+                      )
+@
+
+\title{STAT 154 Lab 5: Ordinary Least Squares (OLS)}
+\author{Yuansi Chen and Raaz Dwivedi}
+\date{March 4, 2019}
+\begin{document}
+
+\maketitle
+
+The goal of this lab is to review some theoretical properties and computational aspects of ordinary least squares (OLS) regression. Questions with prefix (a), (b), ... are to be answered by you.
+
+\section{Ordinary least squares}
+We observe $n$ i.i.d. samples of response-predictor pair $(x_i, y_i) \in \real^{\dims} \times \real$. For convenience purpose, we assume that $n > \dims$. (The next lecture will deal with the case $n \leq \dims$.)
+
+The ordinary least squares solves $\beta$ by minimizing the following objective
+\begin{align}
+  \label{eq:LS}
+  \min_{\beta \in \real^{\dims}}\vecnorm{\mathbf{y} - \mathbf{X}\beta}{2}^2,
+\end{align}
+where $\mathbf{y}$ is an $n$-vector of responses values $y_i$, $\mathbf{X}$ is the $n\times \dims$ matrix of predictors with each row equals to $x_i\tp$. 
+\begin{align*}
+  \mathbf{X} = \begin{pmatrix} x_1\tp \\ x_2 \tp \\ \vdots \\ x_n\tp \end{pmatrix}
+\end{align*}
+To include the intercept term, we assume that the first column of $\mathbf{X}$ is a vector of ones. The resulting vector 
+\begin{align*}
+  \hat{\beta} \in \arg\min_{\beta \in \real^{\dims}}\vecnorm{\mathbf{y} - \mathbf{X}\beta}{2}^2,
+\end{align*}
+is the regression coefficient vector.
+
+There are at least two ways to solve a minimization problem like equation~\eqref{eq:LS}. Denote
+\begin{align*}
+  f(\beta) = \vecnorm{\mathbf{y} - \mathbf{X}\beta}{2}^2.
+\end{align*}
+\begin{enumerate}
+  \item Set gradient to zero and look for a closed form solution. (A closed form solution does not always exist.) Solve
+  \begin{align*}
+    \nabla f(\beta) = 0.
+  \end{align*}
+  \item Use an iterative optimization algorithm like gradient descent. (Almost always doable as long as we can compute gradient, but not alwasy guaranteed to converges to the gradient-zero solution.)
+  \begin{align*}
+    \beta_{k+1} = \beta_{k} - \eta \nabla f(\beta_{k}).
+  \end{align*}
+\end{enumerate}
+
+For OLS, if $\mathbf{X}\tp \mathbf{X}$ is invertible, we have a closed form solution
+\begin{align}
+  \label{eq:hat_beta}
+  \hat{\beta} = \parenth{\mathbf{X} \tp \mathbf{X}}^{-1} \mathbf{X}\tp y.
+\end{align}
+
+\subsection{When do we have the closed-form solution?}
+\begin{enumerate}[label=(\alph*)]
+  \item When is $\mathbf{X}\tp \mathbf{X}$ is non-invertible? Let $\mathbf{X}_{\cdot j}$ be the $j$-th column of $\mathbf{X}$ or $j$-th feature. What happens when two features are identical $\mathbf{X}_{\cdot j} = \mathbf{X}_{\cdot k}$? What happens when $\mathbf{X}_{\cdot j} = \mathbf{X}_{\cdot k} + \mathbf{X}_{\cdot l}$?
+  \item Show that when $n < \dims$, $\mathbf{X}\tp \mathbf{X}$ is non-invertible. 
+  \item Generate a random matrix $\mathbf{X}$ of size $n \times \dims$. $n = 100$, $\dims = 10$. Compute the eigenvalues of $\mathbf{X}\tp \mathbf{X}$. Repeat this for $1000$ times and also with different choices of $n$ and $\dims$. Show in simulation that for a random matrix $\mathbf{X}$, as long as $n > \dims$, $\mathbf{X}\tp \mathbf{X}$ is almost always invertible.
+\end{enumerate}
+\subsection{Gradient method on OLS}
+Briefly review the gradient method on OLS we discussed in class.
+\subsection{Common outputs of OLS}
+OLS procedure typically outputs the following quantities
+\begin{itemize}
+  \item Regression cofficient estimates: $\hat{\beta} = \parenth{\hat{\beta}_1, \hat{\beta}_2, \ldots, \hat{\beta}_\dims}\tp$.
+  \item Predcited (or fitted) response values: $\hat{\mathbf{y}} = \parenth{\hat{y}_1, \hat{y}_2, \ldots, \hat{y}_n}\tp$.
+  \begin{align*}
+    \hat{\mathbf{y}} = \mathbf{X}\hat{\beta}
+  \end{align*}
+  \item Residuals: $e_i = y_i - \hat{y}_i$.
+\end{itemize}
+The secondary results are directly derived from previous outputs.
+\begin{itemize}
+  \item Residual Sum of Squares (RSS):
+  \begin{align*}
+    RSS = \sum_{i=1}^n e_i^2 = \sum_{i=1}^n (y_i - \hat{y}_i)^2. 
+  \end{align*}
+  \item Coefficient of determination $R^2$:
+  \begin{align*}
+    R^2 = 1 - \frac{RSS}{TSS},
+  \end{align*}
+  where $TSS$ is the total sum of squares:
+  \begin{align*}
+    TSS = \sum_{i=1}^n (y_i - \bar{y})^2.
+  \end{align*}
+\end{itemize}
+
+\begin{enumerate}[label=(\alph*)]
+  \item Show that the coefficient of determination equals to the squared correlation between the observed responses and the predicted responses. That is
+  \begin{align*}
+    R^2 = \text{cor}^2(\mathbf{y}, \hat{\mathbf{y}})
+  \end{align*}
+  \item What does it mean to have $R^2$ close to $1$?
+\end{enumerate}
+
+\section{Linear Model}
+Review the lecture slides and recall the difference between the least squares and the linear model. 
+
+In the linear model, given $x_i \in \real^\dims$, we assume that each response $y_i$ is generated i.i.d. from the following model
+\begin{align}
+  \label{eq:linearModel}
+  y = x\tp \beta^* + \epsilon,
+\end{align}
+where the error $\epsilon_i$ is generated i.i.d. with mean zero and constant variance $\sigma^2$. Using matrix notation, we can express the above model as
+\begin{align}
+  \label{eq:linearModelMatrix}
+  \mathbf{y} = \mathbf{X}\beta^* + \bm{\epsilon},
+\end{align}
+where $\bm{\epsilon}$ is an $n$-vector of error values. Note that here we made strong assumption that there exists a ``true'' $\beta^* \in \real^\dims$ that generates all the responses. 
+
+Under the linear model, 
+\begin{enumerate}[label=(\alph*)]
+  \item show that the OLS estimates $\hat{\beta}$ is an unbiased estimator of $\beta^*$. That is
+  \begin{align*}
+    \Exs\brackets{\hat{\beta}} = \beta^*. 
+  \end{align*}
+  \item show that the following variance estimator
+  \begin{align*}
+    \hat{\sigma}^2 = \frac{RSS}{n - \dims},
+  \end{align*}
+  is an unbiased estimator of the error variance $\sigma^2$. 
+\end{enumerate}
+
+\section{OLS in action}
+We are going to use OLS on the Auto MPG Data Set (See \href{https://archive.ics.uci.edu/ml/datasets/auto+mpg}{UCI repository}). Download the cleaned version of the data set on piazza (mpg.csv).
+
+<<echo=TRUE, eval=TRUE>>=
+# set working directory
+setwd("/Users/yuansichen/UCB/Teaching/2019_Spring/Problems/stat154copy/labs/lab5/")
+# read dataset
+data <- read.csv("mpg.csv")
+print(head(data))
+cat("nrows = ", nrow(data), "ncols = ", ncol(data), "\n")
+@
+
+To simplify the problem, we will compute OLS to predict \textbf{mpg} using three other variables.
+\begin{align*}
+  \textbf{mpg} \approx \beta_1 \textbf{horsepower} + \beta_2 \textbf{weight} + \beta_3 \textbf{acceleration} + \beta_4,
+\end{align*}
+First, we leave $10\%$ of the dataset for test purpose. Make sure you only touch the test data once. The rest data can be used in multiple ways. You can either use the entire rest data for training, or split the rest data into training and validation two parts. 
+<<eval=TRUE>>=
+set.seed(123456)
+test_size <- floor(nrow(data)*0.1)
+test_ind <- sample(seq_len(nrow(data)), size = test_size)
+dataTest <- data[test_ind, ]
+dataUse <- data[-test_ind, ]
+cat("nrows = ", nrow(dataUse), "ncols = ", ncol(dataUse), "\n")
+@
+
+\subsection{Exploratory Data Analysis}
+Before running OLS, it is always helpful to spend some time exploring the variables above.
+\begin{itemize}
+  \item Summary statistics
+  \item Histograms and boxplots for each variable
+  \item correlation between variables (both predictors and responses)
+  \item scatterplot
+  \item PCA, K-means etc.
+\end{itemize}
+
+\subsection{Write your own OLS function}
+Your mission here is to write your own R code to run OLS without using \textbf{lm()} function. Ideally, you should try to encapsulate your code using a function rather than a couple of lines. 
+Inputs:
+\begin{itemize}
+  \item predictors $\mathbf{X}$: $n \times \dims$ matrix
+  \item responses $\mathbf{y}$: $n$-vector
+\end{itemize}
+Outputs:
+\begin{itemize}
+  \item \textbf{coefficients}: vector of regression coefficient estimates $\hat{\beta}$
+  \item \textbf{fitted\_values}: vector of fitted values $\hat{\mathbf{y}}$
+  \item \textbf{residuals}: vector of residuals
+\end{itemize}
+Some useful functions in R:
+\begin{itemize}
+  \item \textbf{cbind()}: column binding
+  \item \textbf{solve()}: solve a linear system or compute the inverse of a matrix.
+\end{itemize}
+
+<<>>=
+myOLS <- function(X, Y){
+  # Compute oridinary least squares
+  
+  # Args:
+  #   X: predictor matrix, obs * variables
+  #   Y: responses
+  # 
+  # Returns:
+  #   coefficients: vector of regression coefficient estimates
+  #   fitted_values: vector of fitted values
+  #   residuals: vector of residuals
+  
+  # TODO
+  output_list <- list("coefficients" = NULL, "fitted_values" = NULL, "residuals" = NULL)
+  return(output_list) 
+  }
+@
+
+
+Compare your results with \textbf{lm()}. Note that \textbf{lm()} automatically adds a column of ones to account for intercept.
+<<eval=TRUE>>=
+# regression output with lm()
+res_OLS <- lm(mpg ~ as.numeric(horsepower) + weight + acceleration, data = dataUse) 
+res_OLS$coefficients
+@
+
+\begin{enumerate}[label=(\alph*)]
+  \item try \textbf{summary()} on the output of \textbf{lm()}. 
+  \item try \textbf{plot()} on the output of \textbf{lm()}.
+  \item Given your estimtor $\hat{\beta}$, compute the mean squared error (MSE) on the test data
+  \item Computer the MSE on the test data with that on the training data. 
+\end{enumerate}
+
+\subsection{Visualizing the residuals}
+Visualizing the residuals is one way to check whether the linear model assumption is valid.
+\begin{enumerate}[label=(\alph*)]
+  \item Plot the residuals as a function of \textbf{acceleration}. Do you believe the assumption that the residual is independent of \textbf{acceleration}? 
+  \item Plot the residuals and fitted values in the same figure. Here you just need to create a new data 
+<<>>=
+library(ggplot2)
+# TODO, replace the two 0s with your results.
+postAnalysis <- cbind(dataUse, fitted.values=0, residuals=0)
+# Plot, no need to change the following lines
+ggplot(postAnalysis, aes(x = acceleration, y = mpg)) +
+  geom_smooth(method = "lm", se = FALSE, color = "lightgrey") +
+  geom_segment(aes(xend = acceleration, yend = fitted.values), alpha = .2) +
+
+  # > Color AND size adjustments made here...
+  geom_point(aes(color = abs(residuals), size = abs(residuals))) + # size also mapped
+  scale_color_continuous(low = "black", high = "red") +
+  guides(color = FALSE, size = FALSE) +  # Size legend also removed
+  # <
+
+  geom_point(aes(y = fitted.values), shape = 1) +
+  theme_bw()
+@
+  
+\end{enumerate}
+
+
+\subsection{Data transformation}
+Here we have first used OLS with ``raw'' data. However, in practice, we often want to fit OLS with transformed data. Here we discuss two popular transformations: mean-centered data, and standardized data.
+
+\paragraph{Mean-centered data}
+\begin{enumerate}[label=(\alph*)]
+  \item Use \textbf{lm()} or your implementation to recompute OLS coefficients $\hat{\beta}$ by regressing untransformed \textbf{mpg} on mean centered predictors \textbf{horsepower}, \textbf{weight}, \textbf{acceleration}.
+  \item With the new estimator, how do you recover the previous estimator from untransformed variables?
+\end{enumerate}
+
+\paragraph{Standardized predictors}
+\begin{enumerate}[label=(\alph*)]
+  \item Use \textbf{lm()} or your implementation to recompute OLS coefficients $\hat{\beta}$ by regressing untransformed \textbf{mpg} on standardized predictors \textbf{horsepower}, \textbf{weight}, \textbf{acceleration}.
+  \item With the new estimator, how do you recover the previous estimator from untransformed variables?
+\end{enumerate}
+
+\subsection{Handling Catergoiral Variables}
+Not all predictors are continuous variables or quantitative variables. Sometimes there will be categorial variables. In OLS regression, one typical treatment for a categorial variable is to transform it into a set of dummy variables. For example, for a categorial variable $x$ with $k=3$ categories $a$, $b$ and $c$. We can dummify it by creating $k-1=2$ dummy indicators or $k$ dummy indicators.
+
+\begin{align*}
+  x = \begin{pmatrix}a \\ b \\ c \\ b \\ a \end{pmatrix} \Rightarrow \begin{bmatrix} 0 & 0 \\ 1 & 0 \\ 0 & 1 \\ 1 & 0 \\ 0 & 0 \end{bmatrix} \text{ or } \Rightarrow \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \\ 0 & 1 & 0 \\ 1 & 0 & 0 \end{bmatrix}
+\end{align*}
+
+\begin{enumerate}[label=(\alph*)]
+  \item Consider the variable \textbf{origin}. This is a categorial one: 1=USA, 2=Europe, 3=Japan. Form a new design matrix by adding two dummy indicators for \textbf{origin}.
+  \item Using your OLS implementation to compute new coefficient estimates. 
+  \item Compare it with the following call of \textbf{lm()}. Which dummification does R use?
+\end{enumerate}
+
+<<eval=TRUE>>=
+# regression output with lm()
+res_OLS2 <- lm(mpg ~ as.numeric(horsepower) + weight + acceleration + factor(origin), data = dataUse) 
+res_OLS2$coefficients
+@
+
+\end{document}

@@ -1,0 +1,208 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,float,amsfonts,enumitem,tcolorbox}
+
+\include{macros}
+
+<<{r  global_options},echo=FALSE>>=
+knitr::opts_chunk$set(include=TRUE,echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.width=3, fig.height=3, fig.align='center',
+                      fig.asp = 1
+                      )
+@
+
+\title{STAT 154: Homework 2}
+\author{Release date: \textbf{Thursday, February 7}}
+\date{Due by: \textbf{11 PM, Wednesday, February 20}}
+
+\begin{document}
+
+\maketitle
+
+\section*{Submission instructions}
+It is a good idea to revisit your notes, slides and reading;
+and synthesize their main points BEFORE doing the
+homework.
+
+A .Rnw file corresponding to the homework is also
+uploaded for you. You may use that to write-up
+your solutions.
+Alternately, you can typeset your solutions in latex or
+submit neatly handwritten/scanned solutions.
+However for the parts that ask you to 
+implement/run some R code, your answer
+should look something like this (code followed by result):
+<<>>=
+myfun<- function(){
+show('this is a dummy function')
+}
+myfun()
+@
+Note that this is automatically generated if you use
+the R sweave environment.
+
+You need to submit the following:
+\begin{enumerate}
+\item A pdf of your write-up to ``HW2 write-up''.
+\item A Rmd or Rnw file, that has all your code, to ``HW2 code''.
+\end{enumerate}
+\emph{Ensure a proper submission to gradescope, otherwise it will
+not be graded. 
+Make use of the first lab to clear all your doubts regarding
+the submission/gradescope.}
+
+\newpage
+\section*{The honor code}
+
+\begin{enumerate}[label=(\alph*)]
+\item Please state the names of people who you worked with for this homework.
+You can also provide your comments about the homework here.
+\begin{tcolorbox}
+\vspace{20mm}
+\end{tcolorbox}
+
+\item  Please type/write the following sentences yourself and sign at the end. We want to make
+it \emph{extra} clear that nobody cheats even unintentionally.
+
+\emph{I hereby state that all of my solutions were entirely in my words and were written by me.
+I have not looked at another student’s solutions and I have fairly credited all external 
+sources in this write up.}
+\begin{tcolorbox}
+\vspace{20mm}
+\end{tcolorbox}
+
+\end{enumerate}
+
+\newpage
+This homework revisits principal component analysis (PCA) and related computations.
+
+\section{A few basics of SVD (10*3 = 30 points)}
+
+\paragraph{Singular value:} Given a matrix $M \in \real^{(m \times n)}$
+(assume $m \geq n$). The non-zero singular values of $M$ correspond
+to the square roots of the non-zero eigenvalues of either $M\tp M$ or $MM\tp$.
+
+\paragraph{Singular value decomposition:}
+For real matrix in finite dimension, it is always to write $M$ in the following
+decomposed form
+  \begin{align}
+    \label{eq:svd}
+    M = U D V\tp,
+  \end{align}
+  where
+    \begin{itemize}
+      \item $U$ is an $m \times n$ matrix of left singular vectors.
+      \item $D$ is a $n \times n$ diagonal matrix of singular values.
+      \item $V$ is a $n \times n$ matrix of right singular vectors.
+    \end{itemize}
+\begin{enumerate}[label=(\alph*)]
+	\item Show that $M = \sum_{i=1}^n d_i u_i v_i\tp$ where $d_i = D_{ii}$
+	is the $i$-th singular value, $u_i$ and $v_i$ are the $i$-th left and
+	right singular vectors (column vectors) respectively.
+	\item For $1 \leq i \leq n$, show that the $i$-th eigenvalue of $M\tp M$ is given by $d_i^2$
+	with the corresponding eigenvector $v_i$. And show that the $i$-th eigenvalue
+	of $M M\tp$ is given by $d_i^2$ with the corresponding eigenvector $u_i$.
+	\item Generate a random matrix $M$ of size $n \times n$ for $n \in \braces{2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048}$. And then plot the time taken to (i) to generate this matrix, and (ii) to compute the svd of the matrix as $n$ increases.
+	Note that you need to plot two figures.
+	You may want to use \emph{Sys.time} for the same. DO NOT report the SVD values,    just plot the time as a function of $n$. Do you see some scaling with $n$?   Justify your observations. It may be useful to plot the values on a log-log scale 
+	to get a better idea.
+\end{enumerate}
+% section space_and_time_complexity (end)
+
+\section{Power Method} % (fold)
+\label{sec:power_method}
+The Power Method is an iterative procedure for approximating eigenvalues.
+First assume that the matrix $A$ has a dominant eigenvalue with corresponding dominant eigenvector. Then choose an initial approximation $w_0$ (must be a non-zero vector) of one of the dominant eigenvectors. This choice is arbitrary (and in theory should work with almost any vector). Then, form the sequence $w_1$, $w_2$, . . . , $w_k$, given by:
+\begin{align*}
+  w_1 &= A w_0\\
+  w_2 &= A w_1\\
+  &\vdots \\
+  w_k &= A w_{k-1} = A^{k-1}w_0
+\end{align*}
+For large powers of $k$, and by \textbf{properly scaling} this sequence, you will see that you obtain a good approximation $w_k$ of the dominant eigenvector of $A$.
+
+\subsection{First eigenvector and eigenvector} % (fold)
+\label{sub:first_eigenvector_and_eigenvector}
+
+Here is the full procedure of the Power Method to find the largest eigenvalue and its corresponding eigenvector. Write code in R to implement such method (Implementation code required).
+\begin{enumerate}[label=(\alph*)]
+\item Start with an arbitrary vector $w_0$
+\item Iteration for a series of steps $k = 0,1,2,...,n$ to form the series of $w_k$ vectors:
+$w_{k+1} = \frac{A w_k}{s_{k+1}}$.
+where $s_{k+1}$ is the entry of $Aw_k$ which has the largest absolute value (this is actually a scaling operation dividing by the $L_\infty$-norm).
+\item When the scaling factors $s_k$ are not changing much, $s_{k+1}$ will be close to the largest eigenvalue of $A$, and $w_{k+1}$ will be close to the eigenvector associated to $s_{k+1}$.
+\item You can also veirfy that $s_{k+1}$ will be very close to the eigenvalue given by the Rayleigh quotient:
+\begin{align*}
+  \lambda \sim \frac{w_{k+1}\tp A w_{k+1}}{w_{k+1}\tp w_{k+1}}
+\end{align*}
+\item Typically, once you’ve obtained $w_{k+1}$, it is re-scaled in such a way that its euclidean norm is 1, that is: $\vecnorm{w_{k+1}}{2} = 1$.
+\end{enumerate}
+Use your code to find the largest eigenvalue of the following matrix.
+\begin{align*}
+  A = \begin{bmatrix} 1 & 2 & 3 \\ 2  & -1 & 4 \\ 3 & 4 & -5 \end{bmatrix}
+\end{align*}
+
+Compare your results with those provided by \textbf{eigen()}. Keep in mind that the eigenvectors of \textbf{eigen()} have unit Euclidean norm (i.e. L2-norm). Likewise, recall that the eigenvectors are only defined up to a constant: even when the length is specified they are still only defined up to a scalar.
+
+\subsection{Deflation and more eigenvectors} % (fold)
+\label{sub:deflation_and_more_eigenvectors}
+When a matrix $A$ is symmetric, you can use the power method to get more eigenvectors and eigenvalues. How? You need to apply the Power Method on the residual matrix obtained by deflating $A$ with respect to the first eigenvector. This deflation operation is:
+\begin{align*}
+  A_1 = A - \lambda_1 v_1 v_1\tp,
+\end{align*}
+where $\lambda_1$ is the first eigenvalue and $v_1$ is the corresponding eigenvalue.
+
+Consider the matrix
+\begin{align*}
+  B = \begin{bmatrix}
+    5 & 1 & 0 \\
+    1 & 4 & 0 \\
+    0 & 0 & 1
+  \end{bmatrix}
+\end{align*}
+\begin{enumerate}[label=(\alph*)]
+  \item Apply the your Power Method on $B$ to get an approximation of the first eigenvector and eigenvalue.
+  \item Deflate the matrix $B$ and apply the power method on the residual matrix $B_1$ to obtain the second eigenvalue and eigenvector.
+  \item Deflate the matrix $B_1$ again and apply the power method to obtain the third eigenvalue and eigenvector.
+\end{enumerate}
+
+\section{Principal Component Analysis}
+
+Recall that the principal components correspond to the eigenvectors of the covariance matrix of the data.
+
+We will use the PCA on the \textbf{USArrests} dataset. Take a look at the R documentation with \textbf{?USArrests}.
+For each of the 50 states in the United States (50 rows), the data set contains the number of arrests per 100, 000 residents for each of three crimes: Assault, Murder, and Rape.
+We also record UrbanPop (the percent of the population in each state living
+in urban areas).
+
+\begin{enumerate}[label=(\alph*)]
+  \item Use \textbf{apply()} function to compute mean and variance of all the four columns 
+  \item Plot a histogram for each of the four columns
+  \item Do you see any correlations between the four columns? Plot and comment
+  \item Use \textbf{prcomp()} function to perform principal component analysis. Make sure you standarlized the data matrix. Print a \textbf{summary} at the end.
+  \item Obtain the principal vectors and store them in a matrix, include row and column names. Display the first three loadings.
+  \item Obtain the principal components (or scores) and store them in a matrix, include row and column names. Display the first three PCs. 
+  \item Obtain the eigenvalues and store them in a vector. Display the entire vector, and
+compute their sum.
+  \item Create a scree-plot (with axis labels) of the eigenvalues. What do you see? How do you read/interpret this chart?
+  \item Create a scatter plot based on the 1st and 2nd PCs. Which state stands out? Provide some explanations. In this plot you should annotate the points with state names.
+  \item Create the same scatter plot but color the states according to the variable UrbanPop.
+  \item Create a scatter plot based on the 1st and 3rd PCs. Comment on the difference between this plot and the previous one.
+\end{enumerate}
+
+
+\section{K-means and PCA}
+ISL book: Problems 1 (on K-means) and 10 (PCA and K-means) from Exercises 10.7 (Chapter 10).
+
+\section{True or false (10*7 = 70 points)}
+Examine whether the following statements are true or false and \emph{provide
+one line justification}.
+\begin{enumerate}[label=(\alph*)]
+\item Eigenvalues obtained from the principal component analysis is always nonnegative.
+\item The first principal vector and the second principal vector are always orthogonal.
+\item Singular values of a square matrix $M$ are the same as the eigenvalues of $M$.
+\item Principal components analysis can be used to create a low dimensional projection of the data.
+\item Eigenvalue of a matrix are always nonnegative.
+\item The $y$-axis of a Scree plot is always from 0 to 1.
+\item The maximum number of principal components is always less or equal to the feature dimension. 
+\end{enumerate}
+\end{document}

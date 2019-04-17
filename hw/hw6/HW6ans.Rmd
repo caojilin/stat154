@@ -1,0 +1,87 @@
+---
+title: "HW6"
+author: "caojilin"
+date: "4/15/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ISLR)
+library(reshape2)
+library(ggplot2)
+library(MASS)
+library(class)
+```
+
+### 4.11
+```{r}
+#a
+mpg = Auto$mpg
+mpg01 = rep(0, length(mpg))
+for (i in 1:length(mpg)) {
+  mpg01[i] = if(mpg[i] > median(mpg)) 1 else 0
+}
+dat = data.frame(mpg01 = mpg01, Auto)
+```
+
+```{r}
+#b
+pairs(dat)
+```
+
+except for `mpg`, we see that `cylinders`, `horsepower` , `weight` ,`year` and `acceleration` are most likely to be useful in predicting `mpg01`
+
+```{r}
+#c
+# split ratio 8:2
+set.seed(16)
+train_ind <- sample(seq_len(nrow(dat)), size = nrow(dat)*0.8)
+train <- dat[train_ind, ]
+test <- dat[-train_ind, ]
+```
+
+```{r}
+#d LDA
+fit = lda(mpg01 ~ cylinders + year + horsepower + weight + acceleration, data=train)
+preds = predict(fit, test)
+mean(preds$class != test$mpg01)
+```
+
+```{r}
+#e QDA
+fit = qda(mpg01 ~ cylinders +year + horsepower + weight + acceleration, data=train)
+preds = predict(fit, test)
+mean(preds$class != test$mpg01)
+```
+
+```{r}
+#f logistic regression
+fit =  glm(mpg01 ~ cylinders + year + horsepower + weight + acceleration, 
+           family = "binomial", data = train)
+preds = predict(fit, test, type = "response")
+preds = preds > 0.5
+mean(preds != test$mpg01)
+```
+
+```{r}
+#g KNN
+set.seed(16)
+train.knn <- dat[train_ind, -c(1,2,4,9,10)]
+test.knn <- dat[-train_ind, -c(1,2,4,9,10)]
+
+K = 30
+test.error = rep(0, K)
+for (i in 1:K) {
+  preds = knn(train.knn, test.knn, cl=dat[train_ind, "mpg01"], k = i)
+  test.error[i] = mean(preds != test$mpg01)
+}
+plot(test.error, x=1:K)
+
+which(test.error == min(test.error))
+test.error[8]
+```
+
+we see K=8 give us the smallest test error 

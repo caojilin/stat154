@@ -1,0 +1,69 @@
+```{r}
+#2.1 NBA teams dataset
+dataset <- read.csv("nba-teams-2017.csv", stringsAsFactors = FALSE)
+# uncomment get some info
+str(dataset, vec.len = 1)
+# To do, use boxplot, density, summary etc.
+```
+```{r}
+variables <- c(
+  'wins',
+  'losses',
+  'points',
+  'field_goals',
+  'points3',
+  'free_throws',
+  'off_rebounds',
+  'def_rebounds',
+  'assists',
+  'steals',
+  'blocks',
+  'personal_fouls')
+
+dat <- dataset[ ,variables]
+```
+
+```{r}
+pca_prcomp <- prcomp(dat, scale. = TRUE)
+
+eigenvalues =  pca_prcomp$sdev ^ 2
+
+loadings = pca_prcomp$rotation
+  
+scores = pca_prcomp$x
+#2.2.1 Basic Manipulations
+scores[,12]
+loadings[,12]
+```
+```{r}
+#2.2.2 Proportion of Variance Explained and Screeplot
+a = prop.table(eigenvalues)
+b = cumsum(a)
+plot(b)
+
+b >= 0.7
+# four PCs capture 70%
+eigenvalues >= 1
+```
+
+```{r}
+library(ggplot2)
+ggplot() + geom_point(aes(x = scores[, 1], y=scores[, 2])) +
+  geom_text(aes(x = scores[, 1], y=scores[, 2], label=dataset$team)) +
+  labs(x = "PC1", y = "PC2")
+```
+
+```{r}
+library(plotly)
+scores_df = cbind.data.frame(scores, team=dataset$team, stringsAsFactors=FALSE)
+plot_ly(data=scores_df, x = ~PC1, y = ~PC2, z = ~PC3,
+          type = 'scatter3d',
+        mode = 'markers',
+        text= ~team)
+```
+
+
+
+
+
+

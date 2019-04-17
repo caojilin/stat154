@@ -1,0 +1,334 @@
+\documentclass[12pt]{article}
+\usepackage{fullpage}
+\usepackage{amsmath,amssymb,float,amsfonts,enumitem}
+\usepackage{hyperref}
+
+
+<<{r  global_options},include= TRUE,echo=FALSE>>=
+knitr::opts_chunk$set(include= TRUE,echo = TRUE, eval=FALSE,
+                      message = FALSE, warning = FALSE,
+                      fig.width=3, fig.height=3, fig.align='center',
+                      fig.asp = 1
+                      )
+@
+
+\input{macros.tex}
+
+\title{STAT 154 Lab 3: Principal Component Analysis}
+\author{Yuansi Chen and Raaz Dwivedi}
+\date{Feb 4, 2019}
+\begin{document}
+
+\maketitle
+
+The goal of this lab is to go over the various options and steps required to  perform a Principal Components Analysis (PCA). 
+You will also learn about the functions \textbf{prcomp()} and \textbf{princomp()}.
+<<>>=
+library(ggplot2)
+@
+
+\paragraph{Remark:} You need to set the eval=TRUE on line 8 of the Rnw file to Run the code when you compile the pdf. No change is needed if you only run code chunks. 
+
+\section{Relationship between PCA and SVD}
+Given a matrix $\mat X \in \real^{n \times d}$. Suppose SVD gives that
+\begin{align*}
+  X = U D V\tp.
+\end{align*}
+The minimal output of a PCA procedure should consists 
+of eigenvalues, principal vectors, and principal components.
+\begin{enumerate}
+  \item How do you find eigenvalues of $X\tp X$ from $D$?
+  \item How do you find principal vectors from $U$ or $V$?
+  \item How do you find the principal components (or scores) directly from  $U$, $D$ or $V$?
+\end{enumerate}
+
+
+\section{PCA in Action}
+We now see PCA in action on NBA dataset using
+different methods in R and our own understanding from
+the previous question. The primary goal in PCA is to summarize the systematic patterns of variation
+in a data set, which is done via the principal components (PCs). Derived from 
+this idea, the most common uses of the PCA results is to visualize multivariate 
+data and/or to perform a dimension reduction (for other analytical purposes).
+
+First we try to understand the dataset, and then
+we build on our understanding of PCA to get
+a better insight of the dataset.
+
+\subsection{NBA teams dataset}
+We will use the data set about NBA teams, containing 
+statistics per game during the regular season 2016-2017. The data is stored in a csv file.
+\begin{enumerate}
+\item Spend some time explore the basic structure of the dataset, start with the `View' function followed by:
+(a) descriptive statistics with \textbf{summary()}, 
+(b) univariate plots: boxplots, histograms, density curves,
+(c) compute the correlation matrix, 
+(d) get a scatterplot matrix with \textbf{pairs()}.
+Discuss your observations (e.g. pattern, trend, variability).
+
+<<>>=
+dataset <- read.csv('nba-teams-2017.csv', stringsAsFactors = FALSE)
+# uncomment get some info
+# str(dataset, vec.len = 1)
+
+# To do, use boxplot, density, summary etc.
+@
+
+\item Create a new data frame \textbf{dat} that contains the following columns
+<<>>=
+variables <- c(
+  'wins',
+  'losses',
+  'points',
+  'field_goals',
+  'points3',
+  'free_throws',
+  'off_rebounds',
+  'def_rebounds',
+  'assists',
+  'steals',
+  'blocks',
+  'personal_fouls')
+
+dat <- dataset[ ,variables]
+@
+\end{enumerate}
+
+\subsection{PCA in R}
+R provides two built-in functions to perform Principal Components Analysis: (a) \textbf{prcomp()} and (b)  \textbf{princomp()}.
+Both functions are part of the \textbf{stats} package which comes in the default distribution of R. We first discuss
+the package\textbf{prcomp()}.
+
+The main input of \textbf{prcomp()} is a data frame or a data matrix. 
+In order to  perform PCA on standardized data (mean = 0, variance = 1), we use the argument  ``scale. = TRUE''.
+The object `pca\_prcomp' is an object of class \textbf{prcomp}, basically a list that 
+contains the following results:
+\begin{enumerate}[label=(\alph*)]
+\item \textbf{sdev}: corresponds to the standard deviations of the principal components
+(i.e. the square roots of the eigenvalues of $\frac{1}{n-1} \mat X \tp \mat X$).
+\item \textbf{rotation} is the rotation matrix or loadings
+(i.e. eigenvectors of $\frac{1}{n-1} \mat X \tp \mat X$)
+\item \textbf{center} is the vector of means of the raw data (i.e. the centroid).
+\item \textbf{scale} is the vector of standard deviations of the raw data.
+\item \textbf{x} is the matrix of principal components (aka scores).
+\end{enumerate}
+<<>>=
+pca_prcomp <- prcomp(dat, scale. = TRUE)
+@
+
+\subsubsection{Basic Manipulations}
+
+Create the following objects:
+\begin{enumerate}[label=(\roman*)]
+\item `eigenvalues': vector of eigenvalues of $\frac{1}{n-1} \mat X \tp \mat X$ (i.e. $\lambda_1, \lambda_2, \dots$)
+\item `loadings': matrix of eigenvectors (i.e. $\mathbf{V}$)
+\item `scores': matrix of principal components (i.e. $\mathbf{Z} = \mathbf{XV}$)
+\end{enumerate}
+
+\paragraph{Questions:} How many eigenvalues are almost zero (or zero)? What about the loading associated to the 12th PC? What about the 12th PC score? Can you guess what's going on with the values of the 12th dimension?
+
+<<prcomp_exp>>=
+# prcomp
+# To do
+# start with ?prcomp
+@
+
+
+
+\subsubsection{Proportion of Variance Explained and Screeplot}
+The primary goal in PCA is to summarize the systematic patterns of variation
+in a data set, which is done via the principal components (PCs). Derived from 
+this idea, the most common uses of the PCA results is to visualize multivariate 
+data and/or to perform a dimension reduction (for other analytical purposes).
+
+\paragraph{Scree plot:}
+The first step when examining the results of a PCA is to look at how much variability is captured by each PC. This is done by examining the eigenvalues. 
+A Scree Plot is a simple line segment plot that shows the fraction of total variance in the data as explained or represented by the first PCs.
+
+\paragraph{Questions:} Create such a plot for our data. How much of the variation in the data is captured by the first PC? By the second PC? By both of them together?
+<<scree_plot, fig.height=4, fig.width=4, fig.align='center'>>=
+# scree_plot
+
+# TO DO
+# 
+# may be useful for plotting
+# ggplot() + geom_point(aes(x = 1:length(eigenvalues), y=eigs_cum)) +
+#   labs(x = "first PCs", y = "fraction of total variance explained")
+
+@
+
+
+
+\subsubsection{Strategies for choosing the number of PCs}
+Choosing the number of PCs is largely based on a judgement call.
+Try the strategies below and think which one is more appropriate. 
+\begin{enumerate}
+\item Retain just enough components to explain some specified, large percentage 
+of the total variation of the original variables. For example, how many PCs
+would you retain to capture 70\% of the total variation?
+\item Exclude those PCs whose eigenvalues are less than the average:
+$\sum_{i=1}^{p} \lambda_i / p$. Using this criterion, how many PCs would you
+retain? 
+\item \textbf{Prove} that the average eigenvalue is one when the PCs are extracted from the correlation matrix (like in this case).
+Note that the rule to drop all components with eigenvalues under $1$ is also known as Kaiser's Rule. 
+\item Just choose the first two or three PCs and show the total variation.
+<<>>=
+
+# TO DO
+
+@
+
+\end{enumerate}
+
+\subsubsection{Visualization with PCA}
+PCA is a powerful for EDA and can help identify useful
+low dimensional patterns in high-dimensional data. It also
+often provides a good visual summary of the data in 
+two dimensions. This is often achieved using scatterplots
+with first few principal loadings and components.
+
+\begin{enumerate}
+\item\textbf{Visualizing the principal components/scores:} 
+First we visualize the data in low dimensions:
+\begin{enumerate}[label=(\roman*)]
+
+\item Visualize the projection scores on first two PCs. Label the points using the team names.
+<<scatterplot_2PC, fig.height=6, fig.width=6, fig.align='center'>>=
+# scatterplot_2PC
+# Make changes to the following code to get the plot
+ggplot() + geom_point(aes(x = scores[, 1], y=scores[, 2])) +
+  geom_text(aes(x = scores[, 1], y=scores[, 2], label=dataset$team)) +
+  labs(x = "PC1", y = "PC2")
+@
+
+\item You may also want to see the  plot PC1 - PC3, and then plot PC2 - PC3. If you want, continue visualizing other scatterplots.
+Do you notice any patterns?
+
+
+<<scatterplot_otherPCs, fig.height=6, fig.width=6, fig.align='center'>>=
+# scatterplot_otherPCs
+
+# To Do
+@
+\item Use \textbf{plotly} package to generate a 3D plot of the first three PCs.
+<<plotly3d, fig.height=4, fig.width=4, fig.align='center'>>=
+# plotly3d
+# might only be visible on R studio
+# library(plotly)
+
+# To Do
+@
+\end{enumerate}
+
+\item \textbf{Visualizing principal vectors/loadings:} The next stage consists of examining how principal vectors are formed. Recall that principal vectors are linear combinations of the input variables, in which the coefficients of such linear combinations are given by the loadings.The larger the loading of a variable in a given PC, the more associated the variable is with that PC.
+
+\begin{enumerate}[label=(\roman*)]
+\item Visualize the loadings of first two PCs, label the points using the feature (column) names.
+<<scatterplot_2LLC, fig.height=6, fig.width=6, fig.align='center'>>=
+
+# To Do
+@
+\item Another way to examine how variables are associated with the PCs is to look at 
+their correlations. How correlated is wins with PC1?
+
+<<variables_vs_PC>>=
+# variables_vs_PC
+
+# To Do
+
+# Use cor
+
+@
+\end{enumerate}
+
+\item Scroll to the end of the help menu for the princomp and notice the usage of biplot with it. Use the function biplot to produce the figures from the previous two parts on the same figure.
+<<biplot, fig.height=6, fig.width=6, fig.align='center'>>=
+#
+# start with ?prcomp
+#
+# To Do
+@
+\end{enumerate}
+
+
+\subsection{Doing PCA manually using SVD}
+We will now see that we can obtain same results using
+our understanding of the relation between SVD and PCA
+from the previous question.
+\begin{enumerate}
+\item Scale the data `dat' using the scale function
+and then compute its svd. Compare the `v' vectors
+from svd with the loadings from the previous parts.
+<<>>=
+# To Do 
+@
+
+\item Use the svd output to project the data onto
+the first two right singular vectors and scatter
+plot the projection scores and label the points with
+the corresponding team names.
+<<scatterplot_2RC, fig.height=6, fig.width=6, fig.align='center'>>=
+
+# Hint: First two columns of XV
+
+@
+
+\item Reproduce the previous plot by using just the 
+first two left singular vectors and the corresponding
+singular values.
+<<scatterplot_2LC, fig.height=6, fig.width=6, fig.align='center'>>=
+
+# To Do
+
+# Hint: first two columns of UD
+
+@
+
+\item Discuss the similarities between the projection
+plots that you have created.
+
+\end{enumerate}
+
+\subsection{Interpretations of PCA}
+Discuss the two different interpretations of PCA: (a) Maximum variance direction, and, (b) best representation of data.
+
+\subsection{PCA with \textbf{princomp()}}
+We now discuss another function of R that can be used to perform PCA is \textbf{princomp()}. The main input is a data frame 
+or a data matrix. In order to perform PCA on standardized data 
+(mean = 0, variance = 1), we use the argument \textbf{cor = TRUE}, which means that 
+the analysis is performed using the correlation matrix.
+
+<<>>=
+pca_princomp <- princomp(dat, cor = TRUE)
+@
+
+
+The object `pca\_princomp' is an object of class \textbf{princomp}, basically a list 
+that contains various results: 
+
+\begin{enumerate}[label=(\alph*)]
+\item \textbf{sdev} corresponds to the standard deviations of the principal components.
+\item \textbf{loadings}: object of class loadings (or principal vectors)
+\item \textbf{center}: vector of variable means of the raw data.
+\item \textbf{scale}: vector of standard deviations of the raw data.
+\item \textbf{n.obs}: number of observations in the data.
+\item \textbf{scores}: matrix of principal components.
+\item \textbf{call}: function call.
+\end{enumerate}
+
+Answer the following:
+\begin{enumerate}[label=(\roman*)]
+\item Compare the results of \textbf{prcomp()} against those of \textbf{princomp()} in terms
+of eigenvalues, principal vectors (loadings), and scores.
+
+<<princomp_exp>>=
+# princomp
+# names(pca_princomp)
+# To Do
+@
+
+\item What are the differences between \textbf{prcomp()} and \textbf{princomp()}?
+\item Spend some time reading the help documentation of both functions to find out the main differences between them. 
+\item Are there any cases when it would be better to use one function or the other?
+\end{enumerate}
+\end{document}
