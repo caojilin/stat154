@@ -1,0 +1,373 @@
+---
+title: "Proj2_154"
+author: "Sizhuo (Cindy) Liu"
+date: "4/20/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caret)
+library(ggplot2)
+library(scales)
+
+```
+
+1. Data Collection and Exploration
+
+The purpose of the study is to to propose 
+
+```{r}
+# Load Image Data & Add Column Names
+image1 <- read.table("image_data/image1.txt")
+colnames(image1) <- c('y_coordinate', 'x_coordinate', 'expert_label', 'NDAI', 'SD', 'CORR', 'RA_DF', 'RA_CF', 'RA_BF', 'RA_AF', 'RA_AN')
+image1$expert_label <- as.factor(image1$expert_label)
+image2 <- read.table("image_data/image2.txt")
+colnames(image2) <- c('y_coordinate', 'x_coordinate', 'expert_label', 'NDAI', 'SD', 'CORR', 'RA_DF', 'RA_CF', 'RA_BF', 'RA_AF', 'RA_AN')
+image2$expert_label <- as.factor(image2$expert_label)
+image3 <- read.table("image_data/image3.txt")
+colnames(image3) <- c('y_coordinate', 'x_coordinate', 'expert_label', 'NDAI', 'SD', 'CORR', 'RA_DF', 'RA_CF', 'RA_BF', 'RA_AF', 'RA_AN')
+image3$expert_label <- as.factor(image3$expert_label)
+
+
+image1_nozero <- image1[-which(image1$expert_label == 0),]
+rownames(image1_nozero) <- 1:nrow(image1_nozero)
+
+image2_nozero <- image2[-which(image2$expert_label == 0),]
+rownames(image2_nozero) <- 1:nrow(image2_nozero)
+
+image3_nozero <- image3[-which(image3$expert_label == 0),]
+rownames(image3_nozero) <- 1:nrow(image3_nozero)
+```
+
+```{r, eval=F}
+# Plot Well-Labeled Map
+ggplot(data = image1) + geom_point(aes(x = x_coordinate, y = y_coordinate, color = as.factor(expert_label))) + scale_y_reverse() + scale_color_manual("Expert Labels", labels = c("Not Cloud", "No Label", "Cloud"), values = c("grey", "black", "white"))
+ggplot(data = image2) + geom_point(aes(x = x_coordinate, y = y_coordinate, color = as.factor(expert_label))) + scale_y_reverse() + scale_color_manual("Expert Labels", labels = c("Not Cloud", "No Label", "Cloud"), values = c("grey", "black", "white"))
+ggplot(data = image3) + geom_point(aes(x = x_coordinate, y = y_coordinate, color = as.factor(expert_label))) + scale_y_reverse() + scale_color_manual("Expert Labels", labels = c("Not Cloud", "No Label", "Cloud"), values = c("grey", "black", "white")) + scale_color_manual("Expert Labels", labels = c("Not Cloud", "No Label", "Cloud"), values = c("grey", "black", "white"))
+```
+
+```{r, eval=F}
+# Observe pair-wise relationships between variables ??? Plots different from in the paper
+# pairs(image1_nozero[,c(4, 5, 6)])
+# pairs(image2_nozero[,c(4, 5, 6)])
+
+
+ggplot(data = image1_nozero) + geom_point(aes(x = CORR, y = rescale(image1_nozero$NDAI, to = c(-0.5, 1)), color = as.factor(expert_label))) + scale_color_manual("Expert Labels", labels = c("Not Cloud", "Cloud"), values = c("blue", "red")) + coord_flip()
+
+ggplot(data = image2_nozero) + geom_point(aes(x = CORR, y = NDAI, color = as.factor(expert_label))) + scale_color_manual("Expert Labels", labels = c("Not Cloud", "Cloud"), values = c("blue", "red"))
+
+ggplot(data = image2_nozero) + geom_histogram(aes(x = rescale(image2_nozero$NDAI, to = c(-0.5, 1))))
+
+```
+
+```{r, eval=F}
+# Pairwise Relationships with Expert Label 
+ggplot(data = image1_nozero) + geom_boxplot(aes(y = CORR, color = expert_label))
+boxplot(image1_nozero$CORR)
+
+ggplot(data = image1_nozero) + geom_histogram(aes(x = CORR, color = expert_label, fill = expert_label, alpha = 0.5))
+
+ggplot(data = image1_nozero) + geom_histogram(aes(x = SD, color = expert_label, fill = expert_label, alpha = 0.5)) + scale_color_manual("Expert Labels", labels = c("Not Cloud", "Cloud"), values = c("blue", "red"))
+
+ggplot(data = image1_nozero) + geom_histogram(aes(x = NDAI, color = expert_label, fill = expert_label, alpha = 0.5)) + scale_color_manual("Expert Labels", labels = c("Not Cloud", "Cloud"), values = c("blue", "red"))
+```
+
+2. Preparation
+
+```{r}
+#Method 1
+split_squares <- function(df) {
+  y_steps <- seq(range(df$y_coordinate)[1], 
+                   range(df$y_coordinate)[2], length.out = 3)
+  x_steps <- seq(range(df$x_coordinate)[1], 
+                   range(df$x_coordinate)[2], length.out = 3)
+  
+  df1 <- df[df$y_coordinate >= y_steps[1] 
+                     & df$y_coordinate < y_steps[2]
+                     & df$x_coordinate >= x_steps[1]
+                     & df$x_coordinate < x_steps[2], ]
+
+  df2 <- df[df$y_coordinate >= y_steps[2] 
+                       & df$y_coordinate < y_steps[3]
+                       & df$x_coordinate >= x_steps[1]
+                       & df$x_coordinate < x_steps[2], ]
+  
+  df3 <- df[df$y_coordinate >= y_steps[1] 
+                       & df$y_coordinate < y_steps[2]
+                       & df$x_coordinate >= x_steps[2]
+                       & df$x_coordinate < x_steps[3], ]
+  
+  df4 <- df[df$y_coordinate >= y_steps[2] 
+                       & df$y_coordinate < y_steps[3]
+                       & df$x_coordinate >= x_steps[2]
+                       & df$x_coordinate < x_steps[3], ]
+return (list(lower_left = df1, upper_left = df2, lower_right = df3, upper_right = df4))
+}
+
+split <- function(df) {
+  Train = createDataPartition(1:nrow(df), p=0.8, list = FALSE)
+  training <-df[ Train, ]
+  testing <- df[ -Train, ]
+  val = createDataPartition(1:nrow(training), p=0.8, list = FALSE)
+  training = training[val,]
+  validation = training[-val,]
+  return(list(train = training, validation = validation, test = testing))
+}
+
+split_one <- function (image) {
+  train1 <- data.frame()
+  validation1 <- data.frame()
+  test1 <- data.frame()
+  for (i in 1:4) {
+    split_three <- split(split_squares(image)[[i]])
+    train1 <- rbind(train1, split_three[[1]])
+    validation1 <- rbind(validation1, split_three[[2]])
+    test1 <- rbind(test1, split_three[[3]])
+  }
+  return (list(train = train1, validation = validation1, test = test1))
+}
+
+training <- data.frame()
+validation <- data.frame()
+testing <- data.frame()
+training <- rbind(split_one(image1_nozero)$train, split_one(image2_nozero)$train,
+                  split_one(image3_nozero)$train)
+validation <- rbind(split_one(image1_nozero)$validation, split_one(image2_nozero)$validation,
+                  split_one(image3_nozero)$validation)
+testing <- rbind(split_one(image1_nozero)$test, split_one(image2_nozero)$test,
+                  split_one(image3_nozero)$test)
+```
+
+
+```{r}
+# a) Data Split
+
+# Method 2: Split the data from each image individually and then combine 
+# Andrew Ng's Recommendation: Training: 60%, Validation: 20%, Testing: 20%
+
+split_set <- function(data, num) {
+    data$image <- rep(num, nrow(data))
+    all_indices <- 1:nrow(data)
+    test_index <- sample(all_indices, nrow(data) * 0.2)
+    remaining_index <- all_indices[-test_index]
+    training_index <- sample(remaining_index, length(remaining_index) * 0.8)
+    validation_index <- remaining_index[-training_index]
+    train <- data[training_index,]
+    validation <- data[validation_index,]
+    test <- data[test_index,]
+    return(list(train = train,validation = validation,test = test))
+}
+
+data1 <- split_set(image1_nozero, 1)
+data2 <- split_set(image2_nozero, 2)
+data3 <- split_set(image3_nozero, 3)
+trainM2 <- rbind(data1$train, 
+               data2$train, data3$train)
+
+validationM2 <- rbind(data1$validation,
+                    data2$validation,
+                    data3$validation)
+
+testM2 <- rbind(data1$test,
+                    data2$test,
+                    data3$test)
+```
+
+b)
+The trivial classifier will have a high accuracy when the original image has mostly clear areas (without clouds).
+- Method 1 is preferred over Method 2.
+- The way method 1 is constructed ensures that in training, validation and test sets, there are equal amounts of data from each image. 
+- The table at the end of Method 2, however, suggests that the random selection tends to contain more data from one image than another.
+
+```{r}
+train$expert_label[which(train$expert_label == -1)] <- 0
+test$expert_label[which(test$expert_label == -1)] <- 0
+validation$expert_label[which(validation$expert_label == -1)] <- 0
+train$expert_label <- factor(train$expert_label)
+test$expert_label <- factor(test$expert_label)
+validation$expert_label <- factor(validation$expert_label)
+
+baseline_preds <- -1
+# validation accuracy
+mean(baseline_preds == validation$expert_label)
+# test accuracy
+mean(baseline_preds == test$expert_label)
+image1_nozero
+```
+
+```{r}
+# c) Ask??? Can we use NDAI, CORR, SD?
+
+```
+
+
+```{r}
+# d)
+CVgeneric <- function(classifier, features, labels, K, loss) {
+    folds <- createFolds(labels, k = K)
+    error <- rep(0, K)
+    for (i in 1: K) {
+      test.feature <- features[folds[[i]],]
+      train.feature <- features[-folds[[i]],]
+      label.test <- labels[folds[[i]]]
+      label.train <- labels[-folds[[i]]]
+      
+      mod_fit <- train(train.feature, label.train, method=classifier)
+      y_hat = predict(mod_fit, newdata=test.feature)
+      error[i] = loss(y_hat, label.test)
+    }
+    return (mean(error))
+  }
+```
+
+3. Modeling
+```{r}
+# Logistic Regression Model 
+
+# Split 1
+train_validation <- rbind(train, validation)
+logistic_mod1 <- glm(expert_label ~ SD + CORR + NDAI, 
+                    family = binomial(link = 'logit'), data = train_validation)
+
+tests <- predict(logistic_mod1, test, type = "response")
+tests <- tests > 0.5
+tests[which(tests == FALSE)] <- 0
+tests[which(tests == TRUE)] <- 1
+mean(tests == test$expert_label)
+
+logistic_loss <- function(labels, y_hat) {
+  return (mean(log(1 + exp(-as.integer(labels)*y_hat))))
+}
+
+CVgeneric(logistic_mod1, train_validation[,-3], train_validation$expert_label, K = 5, logistic_loss)
+
+# Split 2
+train_validation_M2 <- rbind(train_M2, validation_M2)
+logistic_mod2 <- glm(expert_label ~ SD + CORR + NDAI, 
+                    family = binomial(link = 'logit'), data = train_validation_M2)
+CVgeneric(logistic_mod2, train_validation_M2[,-3], train_validation_M2$expert_label, K = 5, logistic_loss)
+
+# qda, lda, svm, knn, random forest, neural network 
+```
+
+```{r}
+# QDA
+
+# Split 1
+train_validation <- rbind(train, validation)
+qda_mod1 <- qda(expert_label ~ SD + CORR + NDAI, 
+                     data = train_validation)
+
+test_qda <- predict(qda_mod1, test)
+mean(test_qda$class == test$expert_label)
+
+# Split 2
+train_validation_M2 <- rbind(train_M2, validation_M2)
+qda_mod2 <- qda(expert_label ~ SD + CORR + NDAI, 
+                     data = train_validation_M2)
+
+mean(predict(qda_mod2, test)$class == test$expert_label)
+
+```
+
+```{r}
+# LDA
+
+# Split 1
+train_validation <- rbind(train, validation)
+lda_mod1 <- lda(expert_label ~ SD + CORR + NDAI, 
+                     data = train_validation)
+
+test_lda <- predict(lda_mod1, test)
+mean(test_lda$class == test$expert_label)
+
+# Split 2
+train_validation_M2 <- rbind(train_M2, validation_M2)
+lda_mod2 <- lda(expert_label ~ SD + CORR + NDAI, 
+                     data = train_validation_M2)
+
+mean(predict(lda_mod2, test)$class == test$expert_label)
+```
+
+```{r}
+# KNN
+library(class)
+train_filtered <- train[,c(4,5,6)]
+test_filtered <- test[,c(4,5,6)]
+pred_error <- data.frame(index = 1:5, pred_error = rep(0, 5))
+for (i in c(5, 10, 20, 30, 50)) {
+  knn_pred <- knn(train_filtered, test_filtered, train$expert_label, k = i)
+  pred_error[i,2] <- mean(knn_pred == test$expert_label)
+}
+knn_pred <- knn(train_filtered, test_filtered, train$expert_label, k = 1)
+system.time(knn_pred <- knn(train_filtered, test_filtered, train$expert_label, k = 10))
+```
+
+```{r}
+# SVM
+library(e1071)
+
+# Split 1
+train_validation <- rbind(train, validation)
+svm_mod1 <- svm(expert_label ~ SD + CORR + NDAI, 
+                     data = train_validation,
+                kernel = "polynomial",
+                cost = 10)
+
+test_lda <- predict(lda_mod1, test)
+mean(test_lda$class == test$expert_label)
+
+# Split 2
+train_validation_M2 <- rbind(train_M2, validation_M2)
+lda_mod2 <- lda(expert_label ~ SD + CORR + NDAI, 
+                     data = train_validation_M2)
+
+mean(predict(lda_mod2, test)$class == test$expert_label)
+```
+
+
+```{r}
+# test
+classifier <- logistic_mod1
+features <- train_validation[,-3]
+labels <- train_validation$expert_label
+K <- 5
+loss <- logistic_loss
+
+  library(caret)
+  folds <- createFolds(labels, k = K)
+  error <- rep(0, K)
+  for (i in 1: K) {
+    test <- features[folds[[i]],]
+    train <- features[-folds[[i]],]
+    label.train <- labels[folds[[i]]]
+    label.test <- labels[-folds[[i]]]
+    train$label <- label.train
+    # full.test <- cbind(test, label.test)
+    # features_added <- paste(colnames(features), collapse = " + ")
+    # formula <- paste('labels', ' ~ ', features_added)
+    fit <- glm(label ~ SD + CORR + NDAI, family = binomial(link = 'logit'),data=train)
+    y_hat <- predict(fit, test, type = 'response')
+    error[i] <- loss(label.test, y_hat)
+  }
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
